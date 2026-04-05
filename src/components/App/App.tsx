@@ -1,5 +1,6 @@
 import css from "./App.module.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import toast, { Toaster } from "react-hot-toast";
 import SearchBar from "../SearchBar/SearchBar";
 import MovieGrid from "../MovieGrid/MovieGrid";
@@ -9,31 +10,32 @@ import ErrorMessage from "../ErrorMessage/ErrorMessage";
 import { fetchMovies } from "../../services/movieService";
 import type { Movie } from "../../types/movie";
 import "modern-normalize/modern-normalize.css";
+import Pagination from "../Pagination/Pagination";
 
 export default function App() {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isError, setIsError] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const handleSearch = async (query: string) => {
-    setMovies([]);
-    setIsError(false);
-    setIsLoading(true);
+  const [page, setPage] = useState<number>(1);
 
-    try {
-      const results = await fetchMovies(query);
-      if (results.length === 0) {
-        toast("No movies found for your request.");
-        return;
-      }
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["movies", searchQuery, page],
+    queryFn: () => fetchMovies(searchQuery, page),
+    enabled: searchQuery.trim() !== "",
+  });
 
-      setMovies(results);
-    } catch {
-      setIsError(true);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setPage(1);
   };
+
+  const movies = data?.results || [];
+  const totalPages = data?.total_pages || 0;
+
+  useEffect(() => {
+    if (data && movies.length === 0 && searchQuery !== "") {
+      toast("No movies found for your request.");
+    }
+  }, [data, movies, searchQuery]);
 
   const openModal = (movie: Movie) => {
     setSelectedMovie(movie);
@@ -41,6 +43,7 @@ export default function App() {
   const closeModal = () => {
     setSelectedMovie(null);
   };
+
   return (
     <div className={css.app}>
       <Toaster position="top-right" />
@@ -52,7 +55,17 @@ export default function App() {
       {isError && <ErrorMessage />}
 
       {movies.length > 0 && !isLoading && !isError && (
-        <MovieGrid movies={movies} onSelect={openModal} />
+        <>
+          <MovieGrid movies={movies} onSelect={openModal} />
+
+          {totalPages > 1 && (
+            <Pagination
+              totalPages={totalPages}
+              currentPage={page}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
 
       {selectedMovie && (

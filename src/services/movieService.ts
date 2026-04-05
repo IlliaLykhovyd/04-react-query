@@ -7,12 +7,17 @@ interface FetchMoviesResponse {
   total_pages: number;
   total_results: number;
 }
+interface MovieData {
+  results: Movie[];
+  total_pages: number;
+}
+
 const myKey = import.meta.env.VITE_API_KEY;
 
 export const fetchMovies = async (
   query: string,
   page: number = 1,
-): Promise<Movie[]> => {
+): Promise<MovieData> => {
   const response = await axios.get<FetchMoviesResponse>(
     "https://api.themoviedb.org/3/search/movie",
     {
@@ -28,5 +33,8 @@ export const fetchMovies = async (
       },
     },
   );
-  return response.data.results;
+  return {
+    results: response.data.results,
+    total_pages: response.data.total_pages,
+  };
 };
